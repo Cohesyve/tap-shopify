@@ -11,8 +11,9 @@ setup(
     python_requires='>=3.5.2',
     py_modules=["tap_shopify"],
     install_requires=[
-        "ShopifyAPI==12.4.0",
+        "ShopifyAPI==12.7.0",
         "singer-python==5.12.1",
+        "requests==2.29.0"
     ],
     extras_require={
         'dev': [
@@ -26,9 +27,17 @@ setup(
     [console_scripts]
     tap-shopify=tap_shopify:main
     """,
-    packages=["tap_shopify"],
-    package_data = {
-        "schemas": ["tap_shopify/schemas/*.json"]
+    packages=[
+        "tap_shopify",
+        "tap_shopify.streams",
+        "tap_shopify.streams.compatibility",
+        "tap_shopify.streams.compatibility.value_maps",
+    ],
+    package_data={
+        "tap_shopify": [
+            "schemas/*.json",
+            "streams/compatibility/value_maps/*.json",
+        ]
     },
     include_package_data=True,
 )
