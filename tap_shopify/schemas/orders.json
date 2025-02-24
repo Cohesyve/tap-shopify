@@ -229,6 +229,9 @@
           }
         }
       }
+    },
+    "billingAddressMatchesShippingAddress": {
+      "type": ["null", "boolean"]
     }
   }
 }

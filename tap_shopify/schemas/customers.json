@@ -1,3 +1,17 @@
 {
-  "$ref": "definitions.json#/customer"
+  "type": "object",
+  "properties": {
+    "firstName": {
+      "type": ["null", "string"]
+    },
+    "lastName": {
+      "type": ["null", "string"]
+    },
+    "phone": {
+      "type": ["null", "string"]
+    },
+    "updatedAt": {
+      "type": ["null", "string"]
+    }
+  }
 }

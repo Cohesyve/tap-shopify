@@ -61,7 +61,7 @@ class Orders(Stream):
         fields = generate_dynamic_query(schema)
         return f"""
         query($first: Int!, $after: String, $query: String) {{
-          orders(first: $first, after: $after, query: $query) {{
+          {self.name}(first: $first, after: $after, query: $query) {{
             edges {{
               node {{
                 {fields}
@@ -76,10 +76,10 @@ class Orders(Stream):
         """
 
     @shopify_error_handling
-    def call_api_for_orders(self, variables):
+    def call_api_for_stream(self, variables):
         gql_client = shopify.GraphQL()
         query = self.generate_gql_query()
-        print("GQL Query: ", query)
+        # print("GQL Query: ", query)
         response = gql_client.execute(query, variables)
         LOGGER.debug(f"GraphQL response: {response}")
         return json.loads(response)
@@ -106,7 +106,7 @@ class Orders(Stream):
         }
 
         while True:
-            response = self.call_api_for_orders(variables)
+            response = self.call_api_for_stream(variables)
             
             if 'data' not in response:
                 LOGGER.warning("Unexpected response format. 'data' key not found.")
@@ -115,13 +115,13 @@ class Orders(Stream):
                     LOGGER.error(f"GraphQL errors: {response['errors']}")
                 break
 
-            orders = response.get('data', {}).get('orders', {}).get('edges', [])
+            stream_rows = response.get('data', {}).get(self.name, {}).get('edges', [])
             
-            for order in orders:
-                processed_order = self.process_edges(order['node'])
-                yield processed_order
+            for stream_row in stream_rows:
+                processed_row = self.process_edges(stream_row['node'])
+                yield processed_row
             
-            page_info = response.get('data', {}).get('orders', {}).get('pageInfo', {})
+            page_info = response.get('data', {}).get(self.name, {}).get('pageInfo', {})
             if not page_info.get('hasNextPage', False):
                 break
             
@@ -137,19 +137,24 @@ class Orders(Stream):
         schema = self.get_schema_from_catalog()
         singer.write_schema(self.name, schema, ['id'])
 
-        self.replication_key = self.camel_to_snake(self.replication_key)
+        if self.replication_key:
+            self.replication_key = self.camel_to_snake(self.replication_key)
 
-        for order in self.get_objects():
-            if self.replication_key not in order:
-                LOGGER.warning(f"Replication key '{self.replication_key}' not found in order data. Skipping record.")
-                continue
+            for item in self.get_objects():
+                if self.replication_key not in item:
+                    LOGGER.warning(f"Replication key '{self.replication_key}' not found in order data. Skipping record.")
+                    continue
 
-            replication_value = strptime_to_utc(order[self.replication_key])
-            if replication_value >= bookmark:
-                singer.write_record(self.name, order)
-                yield order  # Yield the order here
-                if replication_value > self.max_bookmark:
-                    self.max_bookmark = replication_value
+                replication_value = strptime_to_utc(item[self.replication_key])
+                if replication_value >= bookmark:
+                    singer.write_record(self.name, item)
+                    yield item  # Yield the order here
+                    if replication_value > self.max_bookmark:
+                        self.max_bookmark = replication_value
+        else:
+            for item in self.get_objects():
+                singer.write_record(self.name, item)
+                yield item
 
         singer.write_state({self.name: strftime(self.max_bookmark)})
 
